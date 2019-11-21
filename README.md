@@ -23,7 +23,29 @@ Existing co-localization techniques significantly lose performance over weakly o
   * opencv-python (cv2)
   
 ## Data Preparation
--
+  * Download "CUB-200-2011" dataset from http://www.vision.caltech.edu/visipedia/CUB-200-2011.html
+      * "Stanford Cars" from https://ai.stanford.edu/~jkrause/cars/car_dataset.html
+      * "FGVC-aircraft" from http://www.robots.ox.ac.uk/~vgg/data/fgvc-aircraft/
+  * Extract in {"CUB", "stanfordCar", "AIRCRAFT/data"}.
+
+  * Example directory hierarchy(CUB) :
+  ```
+  Project
+  |--- data
+  |    |--- CUB
+  |          |--- CUB_200_2011
+  |                    |--- images
+  |                           |--- 200 directories (001.Black ... ~ 200.Common ...)
+  |--- PsyNet
+       |--- models
+       |        |--- networks.py
+       |        |--- resnet.py
+       |        |--- ...
+       |--- main.py 
+       |--- train.py
+       | ...
+       
+  ```
    
 ## How to Run
 ### Arguments
