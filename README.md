@@ -1,6 +1,8 @@
 # PsyNet: Self-supervised Approach to Object Localization Using Point Symmetric Transformation
 Official Pytorch implementation of "PsyNet: Self-supervised Approach to Object Localization Using Point Symmetric Transformation" 
 
+# THIS REPOS IS UNDER REFACTORING
+
 This implementation is based on these repos.
 * [Pytorch Official ImageNet Example](https://github.com/pytorch/examples/tree/master/imagenet)
 
