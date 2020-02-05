@@ -63,6 +63,9 @@ Existing co-localization techniques significantly lose performance over weakly o
 '''
 python -W ignore main.py --gpu 5 --dataset AIRCRAFT --network vggcam16bn --tftypes OR --validation --load_model ckpt_test_air
 '''
+* NOTE
+    * The results of the provided checkpoints are not the same as the performance reported in the paper.
+    * We lost and re-trained - It differs only under the 1.0.
    
 ## Results
 -
