@@ -6,6 +6,8 @@ Official Pytorch implementation of "PsyNet: Self-supervised Approach to Object L
 This implementation is based on these repos.
 * [Pytorch Official ImageNet Example](https://github.com/pytorch/examples/tree/master/imagenet)
 
+Pre-trained .ckpt will be added. (For all scores in the paper)
+
 ## NOTE
 ![structure](./resrc/qualitative_comp.png)
 
