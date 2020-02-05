@@ -59,7 +59,10 @@ Existing co-localization techniques significantly lose performance over weakly o
 -
 
 ### Test
--
+* How to load .ckpt (Pre-trained checkpoint)
+'''
+python -W ignore main.py --gpu 5 --dataset AIRCRAFT --network vggcam16bn --tftypes OR --validation --load_model ckpt_test_air
+'''
    
 ## Results
 -
