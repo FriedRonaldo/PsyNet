@@ -39,8 +39,8 @@ parser.add_argument('--network', type=str, default='serescam50',
                              'rescam18', 'rescam34', 'rescam50', 'rescam101', 'rescam152',
                              'serescam50', 'serescam101', 'serescam152'])
 parser.add_argument('--method', type=str, default='tf', choices=['cam', 'acol1', 'acol2', 'adl', 'acolcam', 'none', 'tf'], help='')
-parser.add_argument('--workers', default=8, type=int, help='number of data loading workers (default: 8)')
-parser.add_argument('--epochs', default=80, type=int, help='number of total epochs to run')
+parser.add_argument('--workers', default=4, type=int, help='number of data loading workers (default: 8)')
+parser.add_argument('--epochs', default=40, type=int, help='number of total epochs to run')
 parser.add_argument('--start_epoch', default=0, type=int, help='manual epoch number (useful on restarts)')
 parser.add_argument('--batch_size', default=32, type=int,
                     help='Total batch size - e.g) num_gpus = 2 , batch_size = 128 then, effectively, 64')
