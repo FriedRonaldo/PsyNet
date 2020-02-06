@@ -56,7 +56,9 @@ Existing co-localization techniques significantly lose performance over weakly o
 -
    
 ### Train
--
+```
+python -W ignore main.py --dataset CUB --network vggcam16bn --tftypes OR
+```
 
 ### Test
 * Checkpoints
@@ -75,7 +77,5 @@ python -W ignore main.py --gpu 5 --dataset CUB --network vggcam16bn --tftypes OR
 python -W ignore main.py --gpu 5 --dataset AIRCRAFT --network vggcam16bn --tftypes OR --validation --load_model Aircraft_VGG16BN
 '''
 
-## Results
--
 ## References
 -
