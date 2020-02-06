@@ -71,10 +71,10 @@ python -W ignore main.py --dataset CUB --network vggcam16bn --tftypes OR
     * We lost all the checkpoints and re-trained - It differs only under the 1.0.
    
 * How to load .ckpt (Pre-trained checkpoint)
-'''
+```
 python -W ignore main.py --gpu 5 --dataset CUB --network vggcam16bn --tftypes OR --validation --load_model CUB_VGG16BN
 python -W ignore main.py --gpu 5 --dataset AIRCRAFT --network vggcam16bn --tftypes OR --validation --load_model Aircraft_VGG16BN
-'''
+```
 
 ## References
 -
