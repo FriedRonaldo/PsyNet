@@ -1,12 +1,14 @@
 # PsyNet: Self-supervised Approach to Object Localization Using Point Symmetric Transformation
 Official Pytorch implementation of "PsyNet: Self-supervised Approach to Object Localization Using Point Symmetric Transformation"   
-This paper is accepted by AAAI 2020. The pdf is available at https://aaai.org/Papers/AAAI/2020GB/AAAI-BaekK.206.pdf .
 
 This implementation is based on these repos.
 * [Pytorch Official ImageNet Example](https://github.com/pytorch/examples/tree/master/imagenet)
 
 Pre-trained .ckpt will be added. (For all scores in the paper)  
 * Now available for VGG16BN on CUB and Aircraft
+
+## PAPER
+This paper is accepted by AAAI 2020. The pdf is available at https://aaai.org/Papers/AAAI/2020GB/AAAI-BaekK.206.pdf .
 
 ## NOTE
 ![structure](./resrc/qualitative_comp.png)
