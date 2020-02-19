@@ -7,6 +7,10 @@ This implementation is based on these repos.
 Pre-trained .ckpt will be added. (For all scores in the paper)  
 * Now available for VGG16BN on CUB and Aircraft
 
+### Joint work with
+* Minhyun Lee [github](https://github.com/gaviotas) (Equal contribution)
+* Hyunjung Shim [CV](https://sites.google.com/site/katehyunjungshim/) (Corresponding)
+
 ## PAPER
 This paper is accepted by AAAI 2020. The pdf is available at https://aaai.org/Papers/AAAI/2020GB/AAAI-BaekK.206.pdf .
 
