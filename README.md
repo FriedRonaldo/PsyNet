@@ -70,12 +70,9 @@ python -W ignore main.py --dataset CUB --network vggcam16bn --tftypes OR
 * Checkpoints
     * [Link](https://drive.google.com/drive/folders/1xU1Mtq84jwmpIa8YdnsZmlcevkEouDCJ?usp=sharing)
 * Performance
-    * CUB - 83.67 (paper : 83.78)
-    * CARs - Will be added
-    * Aircraft - 96.67 (paper : 96.61)
-* NOTE
-    * The results of the provided checkpoints are not the same as the performance reported in the paper.
-    * We lost all the checkpoints and re-trained - It differs only under the 1.0.
+    * CUB - 83.78
+    * CARs - 95.59
+    * Aircraft - 96.61
    
 * How to load .ckpt (Pre-trained checkpoint)
 ```
