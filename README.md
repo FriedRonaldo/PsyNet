@@ -4,8 +4,8 @@ Official Pytorch implementation of "PsyNet: Self-supervised Approach to Object L
 This implementation is based on these repos.
 * [Pytorch Official ImageNet Example](https://github.com/pytorch/examples/tree/master/imagenet)
 
-Pre-trained .ckpt will be added. (For all scores in the paper)  
-* Now available for VGG16BN on CUB and Aircraft
+Pre-trained checkpoints are now available
+* Please check the "test" section.
 
 ### Joint work with
 * Minhyun Lee [github](https://github.com/gaviotas) (Equal contribution)
