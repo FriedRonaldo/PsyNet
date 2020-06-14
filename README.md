@@ -37,15 +37,20 @@ Existing co-localization techniques significantly lose performance over weakly o
       * "Stanford Cars" from https://ai.stanford.edu/~jkrause/cars/car_dataset.html
       * "FGVC-aircraft" from http://www.robots.ox.ac.uk/~vgg/data/fgvc-aircraft/
   * Extract in {"CUB", "stanfordCar", "AIRCRAFT/data"}.
-
-  * Example directory hierarchy(CUB) :
+  * Then, donwload txt files at [Link](https://drive.google.com/drive/folders/1xU1Mtq84jwmpIa8YdnsZmlcevkEouDCJ?usp=sharing)
+  * Place txt file under the dataset directory.
+      * For CUB, ../data//CUB/CUB_200_2011/sizes.txt
+      * For CARs, ../data/stanfordCar/devkit/cars_train_sizes.txt and ../data/stanfordCar/devkit/cars_test_sizes.txt
+      * For Airplane, ../data/AIRCRAFT/data/images_train_size.txt and ../data/AIRCRAFT/data/images_val_size.txt and ../data/AIRCRAFT/data/images_test_size.txt
+  * Example directory hierarchy(CUB) :../data/CUB/CUB_200_2011
   ```
   Project
   |--- data
   |    |--- CUB
   |          |--- CUB_200_2011
   |                    |--- images
-  |                           |--- 200 directories (001.Black ... ~ 200.Common ...)
+  |                    |      |--- 200 directories (001.Black ... ~ 200.Common ...)
+  |                    |--- sizes.txt
   |--- PsyNet
        |--- models
        |        |--- networks.py
