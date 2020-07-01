@@ -169,7 +169,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     args.tftypes_org = args.tftypes
     args.tftypes = tmptftypes
-    args.tfnums = [4, 3, 3, 2, 3, 3]
+    args.tfnums = [4, 3, 3, 2, 3, 5]
     args.tfval = {'T': 0.1, 'C': 0.3, 'S': 30, 'O': 3.0}
 
     print("=> Creating Classifier")
