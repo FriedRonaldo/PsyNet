@@ -12,7 +12,7 @@ Pre-trained checkpoints are now available
 * Hyunjung Shim [CV](https://sites.google.com/site/katehyunjungshim/) (Corresponding)
 
 ## PAPER
-This paper is accepted by AAAI 2020. The pdf is available at https://aaai.org/Papers/AAAI/2020GB/AAAI-BaekK.206.pdf .
+This paper is accepted by AAAI 2020. The pdf is available at https://aaai.org/ojs/index.php/AAAI/article/view/6615/6469
 
 ## NOTE
 ![structure](./resrc/qualitative_comp.png)
