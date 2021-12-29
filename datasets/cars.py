@@ -27,7 +27,7 @@ class Cars(data.Dataset):
             self.size_dir = os.path.join(self.annoroot_dir, 'cars_train_size.txt')
         else:
             self.image_dir = os.path.join(self.data_dir, 'cars_test')
-            self.anno_dir = os.path.join(self.annoroot_dir, 'cars_test_annos_withlabels.mat')
+            self.anno_dir = os.path.join(self.annoroot_dir, 'cars_test_annos.mat')
             self.size_dir = os.path.join(self.annoroot_dir, 'cars_test_size.txt')
 
         # x1 y1 x2 y2 label filename
