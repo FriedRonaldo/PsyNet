@@ -6,7 +6,7 @@ cfg = {
     'VGG13': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     'vgg16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
     'vgg19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
-    'vggcam16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'N', 512, 512, 512, 'N'],
+    'vggcam16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
     'vggcam19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'N', 512, 512, 512, 512, 'N'],
 }
 
@@ -26,7 +26,7 @@ class VGGTF(nn.Module):
         if self.with_cam:
             if 'odd' in tftypes:
                 print('APPEND ODD')
-                self.odd = nn.Conv2d(chinter, self.num_cls[5], 1, 1)
+                self.odd = nn.Conv2d(chinter, self.num_cls[7], 1, 1)
                 self.blocks.append(self.odd)
             if 'rotation' in tftypes:
                 print('APPEND ROTATION')
@@ -48,6 +48,15 @@ class VGGTF(nn.Module):
                 print('APPEND SCALE')
                 self.scale = nn.Conv2d(chinter, self.num_cls[4], 1, 1)
                 self.blocks.append(self.scale)
+            if 'vflip' in tftypes:
+                print('APPEND VFLIP')
+                self.vflip = nn.Conv2d(chinter, self.num_cls[5], 1, 1)
+                self.blocks.append(self.vflip)
+            self.pool = nn.AdaptiveAvgPool2d((1, 1))
+            if 'vtranslation' in tftypes:
+                print('APPEND VTRANSLATION')
+                self.vtranslation = nn.Conv2d(chinter, self.num_cls[6], 1, 1)
+                self.blocks.append(self.vtranslation)
             self.pool = nn.AdaptiveAvgPool2d((1, 1))
         else:
             if 'rotation' in tftypes:
@@ -66,16 +75,26 @@ class VGGTF(nn.Module):
                 print('APPEND HFLIP')
                 self.hflip = nn.Linear(chinter, self.num_cls[3])
                 self.blocks.append(self.hflip)
+            if 'scale' in tftypes:
+                print('APPEND SCALE')
+                self.scale = nn.Linear(chinter, self.num_cls[4])
+                self.blocks.append(self.scale)
 
         self._initialize_weights()
 
         self.features = features
+        self.features_1 = features[0:40]
+        self.features_2 = features[40:]
 
     def forward(self, x):
         logits = []
         cams = []
-        x = self.features(x)
+        # x = self.features(x)
         # x = self.inter(x)
+        # print(self.features)
+        # exit()
+        relu1 = self.features_1(x)
+        x = self.features_2(relu1)
         if self.with_cam:
             chatt = x.mean(1)
             for block in self.blocks:
@@ -83,6 +102,7 @@ class VGGTF(nn.Module):
                 cams.append(cam)
                 logit = self.pool(cam).squeeze()
                 logits.append(logit)
+            cams.append(relu1.mean(1))
             cams.append(chatt)
             return logits, cams
 

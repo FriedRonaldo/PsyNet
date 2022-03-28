@@ -2,7 +2,7 @@ import torch.utils.data as data
 import scipy.io
 import numpy as np
 import os
-from datasets.cub200 import pil_loader
+from cub200 import pil_loader
 
 
 class Cars(data.Dataset):

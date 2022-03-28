@@ -7,6 +7,7 @@ import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.utils as vutils
 import pickle
+from PIL import Image
 
 from utils import *
 
@@ -14,7 +15,7 @@ from utils import *
 def validateTF(data_loader, networks, epoch, args, saveimgs=False, additional=None):
     losses = AverageMeter()
     top1s = dict()
-    tot_types = ['rotation', 'translation', 'shear', 'hflip', 'scale', 'odd']
+    tot_types = ['rotation', 'translation', 'shear', 'hflip', 'scale', 'vflip', 'vtranslation', 'odd']
     for tftype in tot_types:
         top1s[tftype] = AverageMeter()
     # set nets
@@ -25,7 +26,7 @@ def validateTF(data_loader, networks, epoch, args, saveimgs=False, additional=No
 
     if args.dataset.lower() == 'cub':
         bbox_total = load_bbox_size(img_size=args.image_size)
-    elif args.dataset.lower() in ['dogs', 'cars', 'aircraft']:
+    elif args.dataset.lower() in ['dogs', 'cars', 'aircraft', 'odhorse', 'odcar', 'odairplane']:
         bbox_total = additional["dataset"].load_bboxes()
     else:
         print("NOT IMPLEMENTED BBOXES FOR :", args.dataset)
@@ -36,16 +37,16 @@ def validateTF(data_loader, networks, epoch, args, saveimgs=False, additional=No
     means = torch.reshape(torch.tensor(means), (1, 3, 1, 1)).cuda(args.gpu)
     stds = torch.reshape(torch.tensor(stds), (1, 3, 1, 1)).cuda(args.gpu)
     pi = torch.tensor(np.pi)
-
-    use_total = False
-    num_part = 128
-
+    img_ids = []
+    bbox_sizes = []
+    features = {}
     with torch.no_grad():
         t_val = trange(0, len(data_loader), initial=0, total=len(data_loader))
 
         seen = 0
         hit_gtknown = 0
         gtknown = 0.0
+        use_cam = 'none'
 
         for i in t_val:
             try:
@@ -57,23 +58,44 @@ def validateTF(data_loader, networks, epoch, args, saveimgs=False, additional=No
 
             rot_label = torch.tensor(np.random.choice(args.tfnums[0], size=(x_org.size(0),))).cuda(args.gpu,
                                                                                                    non_blocking=True)
-            trs_lable = torch.tensor(np.random.choice(args.tfnums[1], size=(x_org.size(0),))).cuda(args.gpu,
+            trs_label = torch.tensor(np.random.choice(args.tfnums[1], size=(x_org.size(0),))).cuda(args.gpu,
                                                                                                    non_blocking=True)
             sh_label = torch.tensor(np.random.choice(args.tfnums[2], size=(x_org.size(0),))).cuda(args.gpu,
                                                                                                   non_blocking=True)
             hf_label = torch.tensor(np.random.choice(args.tfnums[3], size=(x_org.size(0),))).cuda(args.gpu,
                                                                                                   non_blocking=True)
-            sc_label = torch.tensor(np.random.choice(args.tfnums[4], size=(x_org.size(0),))).cuda(args.gpu,
-                                                                                                  non_blocking=True)
-            od_lable = torch.tensor(np.random.choice(args.tfnums[5], size=(x_org.size(0),))).cuda(args.gpu,
-                                                                                                  non_blocking=True)
+            sc_label = torch.tensor(np.random.choice(args.tfnums[4], size=(x_org.size(0),))).cuda(args.gpu, non_blocking=True)
+            vf_label = torch.tensor(np.random.choice(args.tfnums[5], size=(x_org.size(0),))).cuda(args.gpu, non_blocking=True)
+            vtrs_label = torch.tensor(np.random.choice(args.tfnums[6], size=(x_org.size(0),))).cuda(args.gpu, non_blocking=True)
+            odd_label = torch.tensor(np.random.choice(args.tfnums[7], size=(x_org.size(0),))).cuda(args.gpu, non_blocking=True)
 
-            rot = (rot_label * (360.0 / args.tfnums[0])).float()
-            trs = ((trs_lable - (args.tfnums[1] // 2)).float() * args.tfval['T']).float()
-            sh = ((sh_label - 1) * args.tfval['S']).float()
+            odd_val = float(args.o_value)
+            # odd_val = 2.0 * np.random.rand() + 1.0
+
+            # odd = ((odd_label - (args.tfnums[7] // 2)).float() * 3.0).float()
+            odd1 = ((odd_label - (args.tfnums[7] // 2)).float() * odd_val).float()
+            odd2 = ((odd_label - (args.tfnums[7] // 2)).float() * odd_val).float()
+            odd1[odd1 == 2 * odd_val] = odd_val
+            odd2[odd2 == 2 * odd_val] = -odd_val
+            odd1[odd1 == -2 * odd_val] = -odd_val
+            odd2[odd2 == -2 * odd_val] = odd_val
+            # odd_filter = odd.clone()
+            # rot_filter = rot_label.clone()
+            # odd_filter[odd_filter != 0] = 1
+            # rot_filter[rot_filter == 1] = 0
+            # rot_filter[rot_filter > 1] = 1
+            # filter = odd_filter.long() * rot_filter
+            # rot_label[filter.nonzero()] -= 2
+            # rot = (rot_label * (360.0 / args.tfnums[0])).float()
+            rot = (rot_label * 90.0).float()
+            trs = ((trs_label - (args.tfnums[1] // 2)).float() * 3.0).float()
+            sh = ((sh_label - 1) * 30.0).float()
             hf = (2 * (hf_label - 0.5)).float()
-            sc = 1.0 - ((sc_label - 1.0).float() * args.tfval['C'])
-            od = ((od_lable - (args.tfnums[5] // 2)).float() * args.tfval['O']).float()
+            sc = 1.0 - ((sc_label - 1.0).float() * 0.3)
+            vf = (2 * (vf_label - 0.5)).float()
+            vtrs = ((vtrs_label - (args.tfnums[6]//2)).float() * 3.0).float()
+            # vtrs = vtrs_label.float() * 1.0
+            # odd = odd_label.float() * 1.0
 
             cosR = torch.cos(rot * pi / 180.0)
             sinR = torch.sin(rot * pi / 180.0)
@@ -84,7 +106,9 @@ def validateTF(data_loader, networks, epoch, args, saveimgs=False, additional=No
             shmat = torch.zeros(x_org.size(0), 3, 3).cuda(args.gpu, non_blocking=True)
             hfmat = torch.zeros(x_org.size(0), 3, 3).cuda(args.gpu, non_blocking=True)
             scmat = torch.zeros(x_org.size(0), 3, 3).cuda(args.gpu, non_blocking=True)
-            odmat = torch.zeros(x_org.size(0), 3, 3).cuda(args.gpu, non_blocking=True)
+            vfmat = torch.zeros(x_org.size(0), 3, 3).cuda(args.gpu, non_blocking=True)
+            vtrsmat = torch.zeros(x_org.size(0), 3, 3).cuda(args.gpu, non_blocking=True)
+            oddmat = torch.zeros(x_org.size(0), 3, 3).cuda(args.gpu, non_blocking=True)
 
             rotmat[:, 0, 0] = cosR
             rotmat[:, 0, 1] = -sinR
@@ -93,7 +117,7 @@ def validateTF(data_loader, networks, epoch, args, saveimgs=False, additional=No
             rotmat[:, 2, 2] = 1.0
 
             trsmat[:, 0, 0] = 1.0
-            trsmat[:, 0, 2] = trs
+            trsmat[:, 0, 2] = 0.0
             trsmat[:, 1, 1] = 1.0
             trsmat[:, 1, 2] = trs
             trsmat[:, 2, 2] = 1.0
@@ -111,33 +135,58 @@ def validateTF(data_loader, networks, epoch, args, saveimgs=False, additional=No
             scmat[:, 1, 1] = sc
             scmat[:, 2, 2] = 1.0
 
-            odmat[:, 0, 0] = 1.0
-            odmat[:, 0, 2] = od
-            odmat[:, 1, 1] = 1.0
-            odmat[:, 1, 2] = od
-            odmat[:, 2, 2] = 1.0
+            vfmat[:, 0, 0] = 1.0
+            vfmat[:, 1, 1] = vf
+            vfmat[:, 2, 2] = 1.0
+
+            vtrsmat[:, 0, 0] = 1.0
+            vtrsmat[:, 0, 2] = vtrs
+            vtrsmat[:, 1, 1] = 1.0
+            vtrsmat[:, 1, 2] = 0.0
+            vtrsmat[:, 2, 2] = 1.0
+
+            oddmat[:, 0, 0] = 1.0
+            oddmat[:, 0, 2] = odd1
+            oddmat[:, 1, 1] = 1.0
+            oddmat[:, 1, 2] = odd2
+            oddmat[:, 2, 2] = 1.0
 
             mats = []
             labels = []
+            org_labels = []
 
             if 'odd' in args.tftypes:
-                mats.append(odmat)
-                labels.append(od_lable)
+                mats.append(oddmat)
+                labels.append(odd_label)
+                org_labels.append(1)
             if 'rotation' in args.tftypes:
                 mats.append(rotmat)
                 labels.append(rot_label)
+                org_labels.append(0)
             if 'translation' in args.tftypes:
                 mats.append(trsmat)
-                labels.append(trs_lable)
+                labels.append(trs_label)
+                org_labels.append(1)
             if 'shear' in args.tftypes:
                 mats.append(shmat)
                 labels.append(sh_label)
+                org_labels.append(1)
             if 'hflip' in args.tftypes:
                 mats.append(hfmat)
                 labels.append(hf_label)
+                org_labels.append(1)
             if 'scale' in args.tftypes:
                 mats.append(scmat)
                 labels.append(sc_label)
+                org_labels.append(1)
+            if 'vflip' in args.tftypes:
+                mats.append(vfmat)
+                labels.append(vf_label)
+                org_labels.append(1)
+            if 'vtranslation' in args.tftypes:
+                mats.append(torch.matmul(vtrsmat, trsmat))
+                labels.append(vtrs_label * 3 + trs_label)
+                org_labels.append(1)
 
             theta = mats[0]
 
@@ -166,31 +215,68 @@ def validateTF(data_loader, networks, epoch, args, saveimgs=False, additional=No
 
             losses.update(c_loss.item(), x_org.size(0))
 
-            # if args.test:
-            #     x_org = x_aff
-
             _, attmap = C(x_org)
 
-            attmap = attmap[-1]
+            # for attidx, map in enumerate(attmap[-1]):
+            #     features[img_id[attidx].item()] = map
+
+            if use_cam == 'max':
+                featmaps = []
+                for idx, map in enumerate(attmap[:-1]):
+                    featmaps.append(map[:, org_labels[idx], :, :].unsqueeze(dim=1))
+                attmap = torch.cat(featmaps, dim=1)
+                attmap = attmap.max(1)[0]
+            elif use_cam == 'avg':
+                featmaps = []
+                for idx, map in enumerate(attmap[:-1]):
+                    featmaps.append(map[:, org_labels[idx], :, :].unsqueeze(dim=1))
+                attmap = torch.cat(featmaps, dim=1)
+                attmap = attmap.mean(1)
+            else:
+                attmap1 = attmap[-1]
+            attmap2 = attmap[-2]
+            # with open('features_R.txt', 'rb') as f:
+            #     features = pickle.load(f)
+            #
+            # for attidx, _ in enumerate(attmap):
+            #     attmap[attidx] += features[img_id[attidx].item()]
 
             x_org_ = x_org * stds + means
             x_org_ = x_org_.cpu().detach().numpy()
 
-            attmap = norm_att_map(attmap)
-            attmap = F.upsample(attmap.unsqueeze(dim=1), (x_org.size(2), x_org.size(3)), mode='bilinear')
-            attmap = attmap.cpu().detach().numpy()
+            attmap = norm_att_map(attmap1)
+            a = torch.mean(attmap, dim=(1, 2), keepdim=True)
+            # a, _ = torch.max(attmap, dim=1, keepdim=True)
+            # a, _ = torch.max(a, dim=2, keepdim=True)
+            # th = 0.6
+            # a = a * th
+            attmap = (attmap > a).float()
+            attmap2 = norm_att_map(attmap2)
+            a2 = torch.mean(attmap2, dim=(1, 2), keepdim=True)
+            attmap2 = (attmap2 > a2).float()
 
+            attmap = F.interpolate(attmap.unsqueeze(dim=1), (attmap2.size(1), attmap2.size(2)), mode='nearest').squeeze()
+
+            attmap = attmap2 * attmap
+            # print(M[0])
+            # exit()
+            attmap = F.upsample(attmap.unsqueeze(dim=1), (x_org.size(2), x_org.size(3)), mode='nearest')
+            attmap = attmap.cpu().detach().numpy()
             x_org_ = np.transpose(x_org_, (0, 2, 3, 1))
             attmap = np.transpose(attmap, (0, 2, 3, 1))
 
             res = None
 
             for bidx in range(x_org.size(0)):
+                # cammed = cv2.cvtColor(x_org_[bidx] * 255, cv2.COLOR_RGB2BGR)
+                # cv2.imwrite(os.path.join(args.res_dir, 'selected/org' ,'{}_ours_ori.png'.format(img_id[bidx].item())), cammed)
+
                 _, cammed = cammed_image(x_org_[bidx], attmap[bidx])
-                heatmap = intensity_to_rgb(np.squeeze(attmap[bidx]), normalize=True).astype('uint8')
+                # heatmap = intensity_to_rgb(np.squeeze(attmap[bidx]), normalize=True).astype('uint8')
                 img_bbox = x_org_[bidx].copy()
 
-                gray_heatmap = cv2.cvtColor(heatmap, cv2.COLOR_RGB2GRAY)
+                # gray_heatmap = cv2.cvtColor(heatmap, cv2.COLOR_RGB2GRAY)
+                gray_heatmap = attmap[bidx].astype(np.uint8)
 
                 th_val = 0.2 * np.max(gray_heatmap)
 
@@ -210,6 +296,10 @@ def validateTF(data_loader, networks, epoch, args, saveimgs=False, additional=No
                 gya = int(bbox[1])
                 gxb = int(bbox[2])
                 gyb = int(bbox[3])
+
+                # cammed = cv2.cvtColor(cammed, cv2.COLOR_RGB2BGR)
+                # cv2.imwrite(os.path.join(args.res_dir, 'selected/nobbox', '{}_ours.png'.format(img_id[bidx].item())), cammed)
+
                 cammed = cv2.rectangle(cammed, (max(1, gxa), max(1, gya)),
                                        (min(args.image_size + 1, gxb), min(args.image_size + 1, gyb)), (0, 255, 0),
                                        2)
@@ -223,19 +313,28 @@ def validateTF(data_loader, networks, epoch, args, saveimgs=False, additional=No
 
                     IOU = calculate_IOU(bbox, estimated_box)
                     seen += 1
-                    if IOU >= 0.5:
-                        hit_gtknown += 1
 
-                    cammed = cv2.rectangle(cammed, (max(1, estimated_box[0]), max(1, estimated_box[1])),
-                                           (min(args.image_size + 1, estimated_box[2]),
-                                            min(args.image_size + 1, estimated_box[3])), (255, 0, 0), 2)
+
+                    if IOU >= 0.5:
+                        # img_ids.append(img_id[bidx])
+                        # bbox_sizes.append(w * h)
+                        hit_gtknown += 1
+                        cammed = cv2.rectangle(cammed, (max(1, estimated_box[0]), max(1, estimated_box[1])),
+                                               (min(args.image_size + 1, estimated_box[2]),
+                                                min(args.image_size + 1, estimated_box[3])), (255, 255, 255), 2)
+                    else:
+                        # img_ids.append(img_id[bidx])
+                        # bbox_sizes.append(w * h)
+                        cammed = cv2.rectangle(cammed, (max(1, estimated_box[0]), max(1, estimated_box[1])),
+                                               (min(args.image_size + 1, estimated_box[2]),
+                                                min(args.image_size + 1, estimated_box[3])), (255, 0, 0), 2)
+
                     if saveimgs:
                         if res is None:
                             res = np.copy(np.expand_dims(cammed, 0))
                         else:
                             cammed = np.expand_dims(cammed, 0)
                             res = np.concatenate((res, cammed), 0)
-
                 gtknown = (hit_gtknown / seen) * 100
 
             if saveimgs:
@@ -246,17 +345,27 @@ def validateTF(data_loader, networks, epoch, args, saveimgs=False, additional=No
                                   nrow=int(np.sqrt(res.size(0))),
                                   normalize=True)
 
-            t_val.set_description('VAL: [{}/{}] '
+            t_val.set_description('VAL: [{}/{}], Loss per batch: C[{:.3f}] / '
                                   'Avg Loss: C[{losses.avg:.3f}] R[{rotacc1.avg:.3f}] '
-                                  'T[{trsacc1.avg:.3f}] S[{shacc1.avg:.3f}] F[{hfacc1.avg:.3f}] '
-                                  'C[{scacc1.avg:.3f}] O[{odacc1.avg:.3f}] LOC[{gtknown:.3f}]'
+                                  'T[{trsacc1.avg:.3f}] S[{shacc1.avg:.3f}] F[{hfacc1.avg:.3f}] C[{scacc1.avg:.3f}] '
+                                  'V[{vfacc1.avg:.3f}] X[{vtrsacc1.avg:.3f}] O[{oddacc1.avg:.3f}] LOC[{gtknown:.3f}]'
                                   .format(epoch, args.epochs, c_loss.item(),
                                           losses=losses, rotacc1=top1s['rotation'], trsacc1=top1s['translation'],
                                           shacc1=top1s['shear'], hfacc1=top1s['hflip'], scacc1=top1s['scale'],
-                                          odacc1=top1s['odd'], gtknown=gtknown))
+                                          vfacc1=top1s['vflip'], vtrsacc1=top1s['vtranslation'], oddacc1=top1s['odd'],
+                                          gtknown=gtknown))
         print(gtknown)
+        # print(img_ids)
+        # with open('features.txt', 'wb') as f:
+        #     pickle.dump(features, f)
+        # img_file = open('img_list.txt', 'w')
+        #
+        # for idx, img_id in enumerate(img_ids):
+        #     img_file.write("{} {}\n".format(img_id.data, bbox_sizes[idx]))
+
     return {'R': top1s['rotation'].avg, 'T': top1s['translation'].avg, 'S': top1s['shear'].avg, 'H': top1s['hflip'].avg,
-            'C': top1s['scale'].avg, 'O': top1s['odd'].avg, 'GT': gtknown}
+            'C': top1s['scale'].avg, 'GT': gtknown, 'V': top1s['vflip'].avg, 'X': top1s['vtranslation'].avg,
+            'O': top1s['odd'].avg}
 
 
 def validateFull(data_loader, networks, epoch, args, saveimgs=False):

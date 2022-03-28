@@ -153,7 +153,6 @@ if __name__ == '__main__':
 
     print(ground_truth_imagenet['image_list'][:100])
     print(len(ground_truth_imagenet['image_list']))
-    print(ground_truth_imagenet['gt_bboxes']['ILSVRC2012_val_00000001'])
 
     # image_name = 'ILSVRC2012_val_00002005'
     # categories = ['n03804744']

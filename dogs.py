@@ -1,6 +1,6 @@
 # https://github.com/zrsmithson/Stanford-dogs/blob/master/data/stanford_dogs_data.py
 from __future__ import print_function
-from datasets.cub200 import pil_loader
+from cub200 import pil_loader
 from os.path import join
 import os
 import scipy.io

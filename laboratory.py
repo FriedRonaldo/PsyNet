@@ -9,13 +9,13 @@ import os
 from bs4 import BeautifulSoup
 import re
 
-from datasets.dogs import Dogs
-from datasets.datasetgetter import get_dataset
+from dogs import Dogs
+from datasetgetter import get_dataset
 import argparse
 import torchvision.transforms as transforms
-from models.resnet import rescamtf
-from models.senet import serescamtf
-from torchsummary import summary
+from glob import glob
+import cv2
+from PIL import Image
 
 
 parser = argparse.ArgumentParser(description='PyTorch Simultaneous Training')
@@ -37,28 +37,30 @@ parser.add_argument('--image_size', default=224, type=int, help='Input image siz
 args = parser.parse_args()
 
 
-# data_dir = '../data/stanfordCar'
-#
-# img_dir = os.path.join(data_dir, 'cars_test')
-#
-# from glob import glob
-# import cv2
-#
+data_dir = '../data/AIRCRAFT/data'
+
+img_list_path = os.path.join(data_dir, 'images_test.txt')
+img_list = []
+
+size_file = open('images_train_val.txt', 'w')
+
+with open(img_list_path) as f:
+    img_list = f.read().split()
+
+for img_name in img_list:
+    img_path = os.path.join(data_dir, 'images', img_name + '.jpg')
+    img = Image.open(img_path)
+    size_file.write("{} {} {}\n".format(img_name, img.size[0], img.size[1]))
+
 # files = sorted(glob(img_dir + "/*.jpg"))
-#
-# size_file = open('cars_test_size.txt', 'w')
+
 #
 # for imgname in files:
 #     img = cv2.imread(imgname)
 #     size_file.write("{} {}\n".format(img.shape[1], img.shape[0]))
-#
-# size_file.close()
-# print('DONE')
 
-seres = serescamtf('serescam50', ['rotation', 'translation'], [4, 3], True)
-# print(seres)
-summary(seres, (3, 224, 224,), 1, 'cpu')
-
+size_file.close()
+print('DONE')
 
 # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
 #                                  std=[0.229, 0.224, 0.225])
@@ -72,7 +74,7 @@ summary(seres, (3, 224, 224,), 1, 'cpu')
 #                                          num_workers=args.workers, shuffle=False)
 #
 #
-# # val_iter = iter(val_loader)
+# val_iter = iter(val_loader)
 #
 # bboxes = dataset.load_bboxes()
 #
@@ -89,7 +91,7 @@ summary(seres, (3, 224, 224,), 1, 'cpu')
 #
 #
 # x_in_ = np.transpose(x_in_, (0, 2, 3, 1))
-
+#
 # import cv2
 #
 # for imgidx in range(args.val_batch):
@@ -110,4 +112,4 @@ summary(seres, (3, 224, 224,), 1, 'cpu')
 #                                            2)
 #
 #     cv2.imwrite('tmp{}.png'.format(imgidx), x_tmp)
-
+#
