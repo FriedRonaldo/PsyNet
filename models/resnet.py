@@ -211,7 +211,7 @@ class ResNet(nn.Module):
 
 class ResNetTF(nn.Module):
 
-    def __init__(self, block, layers, zero_init_residual=True,
+    def __init__(self, block, layers, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None, tftypes=['rotation', 'translation', 'shear', 'hflip'],
                  tfnums=[4, 3, 3, 2]):
@@ -271,18 +271,14 @@ class ResNetTF(nn.Module):
             print('APPEND HFLIP')
             self.hflip = nn.Conv2d(chinter, self.num_cls[3], 1, 1)
             self.blocks.append(self.hflip)
-        if 'scale' in tftypes:
-            print('APPEND SCALE')
-            self.scale = nn.Conv2d(chinter, self.num_cls[4], 1, 1)
-            self.blocks.append(self.scale)
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
 
-        # for m in self.modules():
-        #     if isinstance(m, nn.Conv2d):
-        #         nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-        #     elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-        #         nn.init.constant_(m.weight, 1)
-        #         nn.init.constant_(m.bias, 0)
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
         # Zero-initialize the last BN in each residual branch,
         # so that the residual branch starts with zeros, and each residual block behaves like an identity.
@@ -339,6 +335,11 @@ class ResNetTF(nn.Module):
             logits.append(logit)
         cams.append(chatt)
         return logits, cams
+        # x = self.avgpool(x)
+        # x = x.reshape(x.size(0), -1)
+        # x = self.fc(x)
+
+        # return x
 
 
 def rescamtf(resconfig, tftypes, tfnums, pretrained, **kwargs):
@@ -356,7 +357,6 @@ def rescamtf(resconfig, tftypes, tfnums, pretrained, **kwargs):
         print("NOT IMPLEMENTED FOR ", resconfig)
         exit(-3)
     return model
-
 
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNetTF(block, layers, **kwargs)

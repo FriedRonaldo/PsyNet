@@ -26,7 +26,7 @@ class VGGTF(nn.Module):
         if self.with_cam:
             if 'odd' in tftypes:
                 print('APPEND ODD')
-                self.odd = nn.Conv2d(chinter, self.num_cls[5], 1, 1)
+                self.odd = nn.Conv2d(chinter, self.num_cls[7], 1, 1)
                 self.blocks.append(self.odd)
             if 'rotation' in tftypes:
                 print('APPEND ROTATION')
@@ -48,6 +48,15 @@ class VGGTF(nn.Module):
                 print('APPEND SCALE')
                 self.scale = nn.Conv2d(chinter, self.num_cls[4], 1, 1)
                 self.blocks.append(self.scale)
+            if 'vflip' in tftypes:
+                print('APPEND VFLIP')
+                self.vflip = nn.Conv2d(chinter, self.num_cls[5], 1, 1)
+                self.blocks.append(self.vflip)
+            self.pool = nn.AdaptiveAvgPool2d((1, 1))
+            if 'vtranslation' in tftypes:
+                print('APPEND VTRANSLATION')
+                self.vtranslation = nn.Conv2d(chinter, self.num_cls[6], 1, 1)
+                self.blocks.append(self.vtranslation)
             self.pool = nn.AdaptiveAvgPool2d((1, 1))
         else:
             if 'rotation' in tftypes:
@@ -66,6 +75,10 @@ class VGGTF(nn.Module):
                 print('APPEND HFLIP')
                 self.hflip = nn.Linear(chinter, self.num_cls[3])
                 self.blocks.append(self.hflip)
+            if 'scale' in tftypes:
+                print('APPEND SCALE')
+                self.scale = nn.Linear(chinter, self.num_cls[4])
+                self.blocks.append(self.scale)
 
         self._initialize_weights()
 

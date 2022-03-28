@@ -7,7 +7,7 @@ import numpy as np
 from glob import glob
 from shutil import copyfile
 import cv2
-from datasets.datasetgetter import get_dataset
+from datasetgetter import get_dataset
 
 import torch
 from torch import autograd
@@ -21,9 +21,9 @@ import torch.multiprocessing as mp
 import torch.utils.data
 import torch.utils.data.distributed
 
-from models.resnet import rescamtf
 from models.vgg import *
 from models.vggtf import vggcamtf
+from models.resnet import rescamtf
 from models.senet import serescamtf
 from train import *
 from validation import *
@@ -31,16 +31,17 @@ from validation import *
 from utils import *
 
 parser = argparse.ArgumentParser(description='PyTorch Simultaneous Training')
-parser.add_argument('--data_dir', default='../data/', help='path to dataset')
-parser.add_argument('--dataset', default='CUB', help='type of dataset',
-                    choices=['CUB', 'IMAGENET', 'CARS', 'DOGS', 'AIRCRAFT'])
-parser.add_argument('--network', type=str, default='serescam50',
+parser.add_argument('--data_dir', default='/data/', help='path to dataset')
+parser.add_argument('--dataset', default='DOGS', help='type of dataset', choices=['CUB', 'IMAGENET', 'CARS', 'DOGS',
+                                                                                  'AIRCRAFT'])
+parser.add_argument('--model_name', type=str, default='LOC', help='model name')
+parser.add_argument('--network', type=str, default='vggcam19bn',
                     choices=['vggcam16', 'vggcam16bn', 'vggcam19', 'vggcam19bn', 'vggimg16',
                              'rescam18', 'rescam34', 'rescam50', 'rescam101', 'rescam152',
-                             'serescam50', 'serescam101', 'serescam152'])
+                             'serescam50'])
 parser.add_argument('--method', type=str, default='tf', choices=['cam', 'acol1', 'acol2', 'adl', 'acolcam', 'none', 'tf'], help='')
-parser.add_argument('--workers', default=4, type=int, help='number of data loading workers (default: 8)')
-parser.add_argument('--epochs', default=80, type=int, help='number of total epochs to run')
+parser.add_argument('--workers', default=8, type=int, help='number of data loading workers (default: 8)')
+parser.add_argument('--epochs', default=40, type=int, help='number of total epochs to run')
 parser.add_argument('--start_epoch', default=0, type=int, help='manual epoch number (useful on restarts)')
 parser.add_argument('--batch_size', default=32, type=int,
                     help='Total batch size - e.g) num_gpus = 2 , batch_size = 128 then, effectively, 64')
@@ -65,8 +66,9 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
 parser.add_argument('--port', default='8888', type=str)
-parser.add_argument('--tftypes', type=str, default='RTSHCO',
-                    help='R: rotation / T: translation / S: shear / H : hflip / C : scale / O : odd')
+parser.add_argument('--tftypes', type=str, default='RTSH',
+                    help='R: rotation / T: translation / S: shear / H : hflip / C : scale / V : vflip / O : odd')
+parser.add_argument('--o-value', default=3.0, type=str)
 
 
 def main():
@@ -88,6 +90,7 @@ def main():
 
     args.prefix = args.dataset + '_' + args.tftypes + tmppre
 
+
     if args.load_model is None:
         args.model_name = '{}_{}'.format(args.prefix, datetime.now().strftime("%m-%d_%H-%M-%S"))
     else:
@@ -106,6 +109,7 @@ def main():
     makedirs(args.res_dir)
 
     if args.load_model is None:
+        print('COPY PYTHON FILES')
         pyfiles = glob("./*.py")
         modelfiles = glob('./models/*.py')
         datafiles = glob('./datasets/*.py')
@@ -126,6 +130,7 @@ def main():
     formatted_print('Result DIR:', args.res_dir)
     formatted_print('Network:', args.network)
     formatted_print('Method:', args.method)
+    formatted_print('O_value:', args.o_value)
 
     if args.multiprocessing_distributed:
         args.world_size = ngpus_per_node * args.world_size
@@ -164,32 +169,32 @@ def main_worker(gpu, ngpus_per_node, args):
         tmptftypes.append('hflip')
     if 'C' in args.tftypes:
         tmptftypes.append('scale')
+    if 'V' in args.tftypes:
+        tmptftypes.append('vflip')
+    if 'X' in args.tftypes:
+        tmptftypes.append('vtranslation')
     if 'O' in args.tftypes:
         tmptftypes.append('odd')
 
     args.tftypes_org = args.tftypes
     args.tftypes = tmptftypes
-    args.tfnums = [4, 3, 3, 2, 3, 5]
-    args.tfval = {'T': 0.1, 'C': 0.3, 'S': 30, 'O': 3.0}
+    args.tfnums = [4, 3, 3, 2, 3, 2, 3, 5]
 
     print("=> Creating Classifier")
     if 'tf' in args.method:
         print('=> Use transform:\t', args.tftypes)
-        print('=> Use nums:\t', args.tfnums)
-        print('=> Use vals:\t', args.tfval)
         if 'vgg' in args.network:
             print("USE VGGCAMTF")
             classifier = vggcamtf(args.network, args.tftypes, args.tfnums, pretrained=True)
         elif 'seres' in args.network:
-            print('USE SERESNET')
+            print('USE SERES')
             classifier = serescamtf(args.network, args.tftypes, args.tfnums, pretrained=True)
         elif 'res' in args.network:
-            print('USE RESCAMTF')
+            print('USE RES')
             classifier = rescamtf(args.network, args.tftypes, args.tfnums, pretrained=True)
         else:
             print("NOT IMPLEMENTED")
             return
-
     else:
         if args.dataset.lower() == 'imagenet':
             if 'vgg' in args.network:
@@ -279,7 +284,7 @@ def main_worker(gpu, ngpus_per_node, args):
     ######################
     if args.validation:
         if 'tf' in args.method:
-            validateTF(val_loader, networks, 678, args, True, additional={"dataset": val_dataset})
+            validateTF(val_loader, networks, 123, args, False, additional={"dataset": val_dataset})
         else:
             if args.dataset.lower() == 'imagenet':
                 validateImage(val_loader, networks, 123, args, True)
@@ -303,9 +308,7 @@ def main_worker(gpu, ngpus_per_node, args):
         record_txt.write('Network\t:\t{}\n'.format(args.network))
         record_txt.write('Method\t:\t{}\n'.format(args.method))
         record_txt.write('DATASET\t:\t{}\n'.format(args.dataset))
-        record_txt.write('TFTYPES\t:\t{}\n'.format(args.tftypes))
-        record_txt.write('TFNUMS\t:\t{}\n'.format(args.tfnums))
-        record_txt.write('TFVALS\t:\t{}\n'.format(args.tfval))
+        record_txt.write('OVAL\t:\t{}\n'.format(args.o_value))
         record_txt.close()
 
     best = 0.0
@@ -354,12 +357,14 @@ def main_worker(gpu, ngpus_per_node, args):
             record_txt = open(os.path.join(args.log_dir, "record.txt"), "a+")
             if 'tf' in args.method:
                 record_txt.write(
-                    'Epoch : {:3d}, Train R : {:.4f} T : {:.4f} S : {:.4f} H : {:.4f} C : {:.4f} O : {:.4f},'
-                    ' VAL R : {:.4f} T : {:.4f} S : {:.4f} H : {:.4f} C : {:.4f} O : {:.4f}, GT : {:.4f}\n'.
+                    'Epoch : {:3d}, Train R : {:.4f} T : {:.4f} S : {:.4f} H : {:.4f} C : {:.4f}, V : {:.4f}, '
+                    'O : {:.4f}'
+                    ' VAL R : {:.4f} T : {:.4f} S : {:.4f} H : {:.4f}, C : {:.4f} V : {:.4f}, O : {:.4f} '
+                    'GT : {:.4f}\n'.
                         format(epoch, acc_train['R'], acc_train['T'],
-                               acc_train['S'], acc_train['H'], acc_train['C'], acc_train['O'],
-                               acc_val['R'], acc_val['T'], acc_val['S'], acc_val['H'], acc_val['C'], acc_val['O'],
-                               acc_val['GT']))
+                               acc_train['S'], acc_train['H'], acc_train['C'], acc_train['V'], acc_train['O'],
+                               acc_val['R'], acc_val['T'], acc_val['S'], acc_val['H'], acc_val['C'], acc_val['V'],
+                               acc_val['O'], acc_val['GT']))
             else:
                 record_txt.write(
                     'Epoch : {:3d}, Train top1 : {:.4f} top5 : {:.4f} ,'

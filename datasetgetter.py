@@ -1,12 +1,11 @@
 # from torchvision.datasets import CIFAR10, CIFAR100, ImageFolder
-from datasets.testfolder import ImageFolderWithPath
-from datasets.cub200 import Cub2011
+from testfolder import ImageFolderWithPath
+from cub200 import Cub2011
 import os
 import torchvision.transforms as transforms
-from datasets.dogs import Dogs
-from datasets.cars import Cars
-from datasets.aircraft import AIRCRAFT
-from datasets.objectdiscovery import ObjectDiscovery
+from dogs import Dogs
+from cars import Cars
+from aircraft import AIRCRAFT
 
 
 def get_dataset(dataset, args):
@@ -16,14 +15,12 @@ def get_dataset(dataset, args):
                                          std=[0.229, 0.224, 0.225])
         transforms_train = transforms.Compose([transforms.Resize((256, 256)),
                                                transforms.RandomCrop(224, padding=4, padding_mode='reflect'),
+                                               # transforms.RandomHorizontalFlip(),
+                                               # transforms.RandomVerticalFlip(),
                                                transforms.ToTensor(),
                                                normalize])
         transforms_val = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(), normalize])
 
-        # if args.nlabels != -1:
-        #     train_dataset = Cub2011(os.path.join(args.data_dir, args.dataset),
-        #                             transform=transforms_train, download=False, mode='semi', n_labels=args.nlabels)
-        # else:
         train_dataset = Cub2011(os.path.join(args.data_dir, args.dataset),
                                 transform=transforms_train, download=False, mode='full')
         val_dataset = Cub2011(os.path.join(args.data_dir, args.dataset),
@@ -77,6 +74,7 @@ def get_dataset(dataset, args):
 
         train_dataset = Dogs(args.data_dir, transform=transforms_train, with_id=False)
         val_dataset = Dogs(args.data_dir, transform=transforms_val, with_id=True, train=False)
+
     elif dataset.lower() == 'aircraft':
         print('USE AIRCRAFT DATASET')
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -92,19 +90,6 @@ def get_dataset(dataset, args):
         train_dataset = AIRCRAFT(args.data_dir, transform=transforms_train, with_id=False, train='train')
         val_dataset = AIRCRAFT(args.data_dir, transform=transforms_val, with_id=True, train='test')
         # val_dataset = AIRCRAFT(args.data_dir, transform=transforms_val, with_id=True, train='val')
-    elif dataset.lower() in ['odhorse', 'odcar', 'odairplane']:
-        print('USE OBJECT DISCOVERY DATASET', dataset[2:])
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
-        transforms_train = transforms.Compose([transforms.Resize((256, 256)),
-                                               transforms.RandomCrop(224, padding=4, padding_mode='reflect'),
-                                               # transforms.RandomHorizontalFlip(),
-                                               transforms.ToTensor(),
-                                               normalize])
-        transforms_val = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(), normalize])
-
-        train_dataset = ObjectDiscovery(args.data_dir, True, dataset, transform=transforms_train, with_id=False)
-        val_dataset = ObjectDiscovery(args.data_dir, False, dataset, transform=transforms_val, with_id=True)
 
     else:
         print('NOT IMPLEMENTED DATASET :', dataset)

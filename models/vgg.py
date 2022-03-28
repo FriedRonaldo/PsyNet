@@ -11,19 +11,21 @@ cfg = {
     'VGG13': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     'vgg16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
     'vgg19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
-    'vggimg19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'N'],
+    'vggimg16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'N'],
     'vggcam16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'N', 512, 512, 512, 'N'],
     'vggcam19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'N', 512, 512, 512, 512, 'N'],
 }
 
 
 class VGG(nn.Module):
-    def __init__(self, features, init_weights=False, dataset='imagenet'):
+    def __init__(self, features, init_weights=False, method='cam', dataset='imagenet'):
         super(VGG, self).__init__()
         # parameters setting
         classes = {'imagenet': 1000}
         self.dataset = dataset
         num_classes = classes[self.dataset.lower()]
+
+        self.method = method
 
         # network layers setting
         self.features = features
@@ -31,13 +33,25 @@ class VGG(nn.Module):
         self.pool = nn.AdaptiveAvgPool2d((7, 7))
         self.maxpool = nn.MaxPool2d(2, 2)
 
-        self.classifier = nn.Sequential(nn.Linear(7 * 7 * 512, 4096),
-                                        nn.ReLU(True),
-                                        nn.Dropout2d(0.5),
-                                        nn.Linear(4096, 4096),
-                                        nn.ReLU(True),
-                                        nn.Dropout2d(0.5),
-                                        nn.Linear(4096, num_classes))
+        if method == 'none':
+            self.classifier = nn.Sequential(nn.Linear(7 * 7 * 512, 4096),
+                                            nn.ReLU(True),
+                                            nn.Dropout2d(0.5),
+                                            nn.Linear(4096, 4096),
+                                            nn.ReLU(True),
+                                            nn.Dropout2d(0.5),
+                                            nn.Linear(4096, num_classes))
+        elif method =='cam':
+            self.inter = nn.Conv2d(512, 1024, 1)
+            self.gap = nn.AdaptiveAvgPool2d((1, 1))
+            self.classifier = nn.Sequential(nn.Dropout2d(), nn.Linear(1024, num_classes))
+        elif method =='acolcam':
+            self.classifier = nn.Sequential(nn.Conv2d(512, 1024, 3, 1, 1),
+                                     nn.ReLU(),
+                                     nn.Conv2d(1024, 1024, 3, 1, 1),
+                                     nn.ReLU(),
+                                     nn.Conv2d(1024, num_classes, 1))
+            self.gap = nn.AdaptiveAvgPool2d((1, 1))
 
         if init_weights:
             self._initialize_weights()
@@ -47,9 +61,21 @@ class VGG(nn.Module):
         chatt = out
         out = self.maxpool(out)
         out = self.pool(out)
-        out = out.view(x.size(0), -1)
-        out = self.classifier(out)
-        return out, [chatt]
+        if self.method == 'none':
+            out = self.maxpool(out)
+            out = self.pool(out)
+            out = out.view(x.size(0), -1)
+            out = self.classifier(out)
+            return out, [chatt]
+        elif self.method == 'cam':
+            out = self.inter(out)
+            out = self.gap(out).squeeze()
+            out = self.classifier(out)
+            return out, [chatt]
+        elif self.method == 'acolcam':
+            out = self.classifier(out)
+            out = self.gap(out)
+            return out, [chatt]
 
     def _initialize_weights(self):
         for m in self.modules():
@@ -66,7 +92,7 @@ class VGG(nn.Module):
 
 
 class VGGCAM(nn.Module):
-    def __init__(self, features, init_weights=False, dataset='CUB', method='CAM', th=0.6):
+    def __init__(self, features, dataset='CUB', method='CAM', th=0.6):
         super(VGGCAM, self).__init__()
         # parameters setting
         classes = {'cub': 200}
@@ -75,11 +101,13 @@ class VGGCAM(nn.Module):
         self.method = method.lower()
         self.th = th
 
+        self.features = features
+
         if method == 'cam':
             self.inter = nn.Conv2d(512, 1024, 1)
             self.pool = nn.AdaptiveAvgPool2d((1, 1))
             self.classifier = nn.Sequential(nn.Dropout2d(), nn.Linear(1024, num_classes))
-        elif method == 'acol1':
+        elif method == 'acolself':
             self.cls = nn.Sequential(nn.Conv2d(512, 1024, 3, 1, 1),
                                      nn.ReLU(),
                                      nn.Conv2d(1024, 1024, 3, 1, 1),
@@ -91,49 +119,43 @@ class VGGCAM(nn.Module):
                                            nn.ReLU(),
                                            nn.Conv2d(1024, num_classes, 1))
             self.pool = nn.AdaptiveAvgPool2d((1, 1))
-        elif method == 'acolcam':
+        elif method == 'acolimg':
+            print('NOT IMPLEMENTED ACOLIMG')
+            exit(-3)
+        elif method == 'acolfeat':
+            # I -> layer1 -> feat -> layer2 -> map, logit
+            # feat -> erase(map) -> feat' -> layer2 -> map', logit'
+            self.layer1 = self.features[0:17]
+            self.layer2 = self.features[17:]
             self.classifier = nn.Sequential(nn.Conv2d(512, 1024, 3, 1, 1),
-                                     nn.ReLU(),
-                                     nn.Conv2d(1024, 1024, 3, 1, 1),
-                                     nn.ReLU(),
-                                     nn.Conv2d(1024, num_classes, 1))
+                                           nn.ReLU(),
+                                           nn.Conv2d(1024, 1024, 3, 1, 1),
+                                           nn.ReLU(),
+                                           nn.Conv2d(1024, num_classes, 1))
             self.pool = nn.AdaptiveAvgPool2d((1, 1))
+            pass
         elif method == 'adl':
             print('NOT IMPLEMENTED ADL')
             exit(-3)
-        elif method == 'none':
-            self.pool = nn.AdaptiveAvgPool2d((7, 7))
-
-            self.classifier = nn.Sequential(nn.Linear(7 * 7 * 512, 4096),
-                                            nn.ReLU(True),
-                                            nn.Dropout2d(0.5),
-                                            nn.Linear(4096, 4096),
-                                            nn.ReLU(True),
-                                            nn.Dropout2d(0.5),
-                                            nn.Linear(4096, num_classes))
-
-        if init_weights:
-            self._initialize_weights()
-
-        self.features = features
 
     def forward(self, x, y_in=None):
-        x = self.features(x)
-
         if self.method == 'cam':
-            chatt = x.mean(1)
+            x = self.features(x)
+            chatt = x
             out = self.inter(x)
             out = self.pool(out).squeeze()
             logit = self.classifier(out)
             return logit, [chatt]
 
         elif self.method == 'acolcam':
+            x = self.features(x)
             chatt = x
             out = self.classifier(x)
             logit = self.pool(out).squeeze()
             return logit, [chatt]
 
-        elif self.method == 'acol1':
+        elif self.method == 'acolself':
+            x = self.features(x)
             # attention map and backbone
             attmap = x.mean(1)
 
@@ -152,14 +174,36 @@ class VGGCAM(nn.Module):
             logit_erase = self.pool(out_erase).squeeze()
 
             return [logit_org, logit_erase], [mask, localization_map_normed]
+
+        elif self.method == 'acolfeat':
+            # I -> layer1 -> feat -> layer2 -> map, logit
+            # feat -> erase(map) -> feat' -> layer2 -> map', logit'
+            feat = self.layer1(x)
+
+            # branch A ( first forward )
+            out_first = self.layer2(feat)
+            map_first_org = out_first
+            map_first = map_first_org.mean(1)
+            logit_first = self.pool(self.classifier(out_first)).squeeze()
+
+            # erase
+            localization_map_normed = norm_att_map(map_first)
+            feat_erase, _ = self.erase_feature_maps(localization_map_normed, feat, self.th)
+
+            # branch B (second forward )
+            out_erase = self.layer2(feat_erase)
+            map_second_org = out_erase
+            # map_second = map_second_org.mean(1)
+            logit_second = self.pool(self.classifier(out_erase)).squeeze()
+            return [logit_first, logit_second], [map_first_org, map_second_org]
+
+        elif self.method == 'acolimg':
+            print('NOT IMPLEMENTED ACOL IMG')
+            exit(-3)
+
         elif self.method == 'adl':
             print('NOT IMPLEMENTED ADL')
             exit(-3)
-        elif self.method == 'none':
-            attmap = x.mean(1)
-            out = self.pool(x).view(x.size(0), -1)
-            logit = self.classifier(out)
-            return logit, [attmap]
 
     def _initialize_weights(self):
         for m in self.modules():
@@ -175,16 +219,18 @@ class VGGCAM(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def erase_feature_maps(self, atten_map_normed, feature_maps, threshold):
-        # atten_map_normed = torch.unsqueeze(atten_map_normed, dim=1)
-        # atten_map_normed = self.up_resize(atten_map_normed)
         if len(atten_map_normed.size())>3:
             atten_map_normed = torch.squeeze(atten_map_normed)
         atten_shape = atten_map_normed.size()
 
         pos = torch.ge(atten_map_normed, threshold)
-        mask = torch.ones(atten_shape).cuda()
+        if feature_maps.device == torch.device('cpu'):
+            mask = torch.ones(atten_shape)
+        else:
+            mask = torch.ones(atten_shape).cuda(feature_maps.get_device())
         mask[pos.data] = 0.0
         mask = torch.unsqueeze(mask, dim=1)
+
         #erase
         erased_feature_maps = feature_maps * Variable(mask)
 
@@ -232,9 +278,9 @@ def vgg(depth, **kwargs):
     return model
 
 
-def vggimg(vggconfig='vggimg16', dataset='imagenet', **kwargs):
+def vggimg(vggconfig='vggimg16', dataset='imagenet', method='cam', **kwargs):
     use_bn = ('bn' in vggconfig)
-    model = VGG(make_layers_imagenet(cfg[vggconfig], use_bn), dataset=dataset, **kwargs)
+    model = VGG(make_layers_imagenet(cfg[vggconfig], use_bn), dataset=dataset, method=method, **kwargs)
     model_dict = model.state_dict()
     if vggconfig == 'vggimg16':
         vgg = vmodels.vgg16(pretrained=True)
@@ -242,7 +288,7 @@ def vggimg(vggconfig='vggimg16', dataset='imagenet', **kwargs):
         print('NOT IMPLEMENTED', vggconfig)
         exit(-3)
     pretrained_dict = vgg.state_dict()
-    pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+    pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict and 'features' in k}
     model_dict.update(pretrained_dict)
     model.load_state_dict(model_dict)
     return model

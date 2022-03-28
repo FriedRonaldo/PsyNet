@@ -116,7 +116,7 @@ def norm_att_map(att_maps):
     return att_norm
 
 
-def load_bbox_size(dataset_path='../data/CUB/CUB_200_2011', img_size=224):
+def load_bbox_size(dataset_path='/data/CUB/CUB_200_2011', img_size=224):
     origin_bbox = {}
     image_sizes = {}
     resized_bbox = {}
@@ -311,7 +311,7 @@ def linear_rampup(current, rampup_length=16):
 def cross_entropy(input, target):
     """ Cross entropy for one-hot labels
     """
-    return -torch.mean(torch.sum(target * F.log_softmax(input), dim=1))
+    return -torch.mean(torch.sum(F.softmax(target) * F.log_softmax(input), dim=1))
 
 
 class SemiLoss(object):
@@ -394,4 +394,3 @@ def checkIntersectAndCombine(rects):
             # loop again the combined rect and those remaining rect in mainRects
             mainRects = mainRects + newRectsArray
     return mainRects
-

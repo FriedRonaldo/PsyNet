@@ -370,7 +370,7 @@ class SENetTF(nn.Module):
     def __init__(self, block, layers, groups, reduction, dropout_p=None,
                  inplanes=128, input_3x3=True, downsample_kernel_size=3,
                  downsample_padding=1, tftypes=['rotation', 'translation', 'shear', 'hflip'],
-                 tfnums=[4, 3, 3, 2]):
+                 tfnums=[4, 3, 3, 2, 3]):
         """
         Parameters
         ----------
@@ -490,6 +490,10 @@ class SENetTF(nn.Module):
         self.blocks = nn.ModuleList()
         self.num_cls = tfnums
 
+        if 'odd' in tftypes:
+            print('APPEND ODD')
+            self.odd = nn.Conv2d(chinter, self.num_cls[7], 1, 1)
+            self.blocks.append(self.odd)
         if 'rotation' in tftypes:
             print('APPEND ROTATION')
             self.rotation = nn.Conv2d(chinter, self.num_cls[0], 1, 1)
@@ -510,10 +514,16 @@ class SENetTF(nn.Module):
             print('APPEND SCALE')
             self.scale = nn.Conv2d(chinter, self.num_cls[4], 1, 1)
             self.blocks.append(self.scale)
-        if 'odd' in tftypes:
-            print('APPEND ODD')
-            self.odd = nn.Conv2d(chinter, self.num_cls[5], 1, 1)
-            self.blocks.append(self.odd)
+        if 'vflip' in tftypes:
+            print('APPEND VFLIP')
+            self.vflip = nn.Conv2d(chinter, self.num_cls[5], 1, 1)
+            self.blocks.append(self.vflip)
+        if 'vtranslation' in tftypes:
+            print('APPEND VTRANSLATION')
+            # self.vtranslation = nn.Conv2d(chinter, self.num_cls[6], 1, 1)
+            self.vtranslation = nn.Conv2d(chinter, 9, 1, 1)
+            self.blocks.append(self.vtranslation)
+
         self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
 
     def _make_layer(self, block, planes, blocks, groups, reduction, stride=1,
@@ -579,9 +589,11 @@ def serescamtf(resconfig, tftypes, tfnums, pretrained, **kwargs):
     if resconfig == 'serescam50':
         model = senetcam50(tftypes, tfnums, pretrained)
     elif resconfig == 'serescam101':
-        model = senetcam101(tftypes, tfnums, pretrained)
+        print("NOT")
+        exit(-3)
     elif resconfig == 'serescam152':
-        model = senetcam152(tftypes, tfnums, pretrained)
+        print("NOT2")
+        exit(-3)
     return model
 
 
@@ -606,16 +618,6 @@ def _seresnet(block, layers, pretrained, groups, reduction,
 def senetcam50(tftypes, tfnums, pretrained):
     return _seresnet(SEResNetBottleneck, [3, 4, 6, 3], pretrained, 1, 16, 64, False,
                      1, 0, 'se_resnet50', tftypes, tfnums)
-
-
-def senetcam101(tftypes, tfnums, pretrained):
-    return _seresnet(SEResNetBottleneck, [3, 4, 23, 3], pretrained, 1, 16, 64, False,
-                     1, 0, 'se_resnet101', tftypes, tfnums)
-
-
-def senetcam152(tftypes, tfnums, pretrained):
-    return _seresnet(SEResNetBottleneck, [3, 8, 36, 3], pretrained, 1, 16, 64, False,
-                     1, 0, 'se_resnet152', tftypes, tfnums)
 
 
 def senet154(num_classes=1000, pretrained='imagenet'):
